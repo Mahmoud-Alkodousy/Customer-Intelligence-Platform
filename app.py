@@ -1,666 +1,429 @@
-import os
-import requests
-import pandas as pd
-import numpy as np
 import streamlit as st
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import requests
 from datetime import datetime
-import time
 
 # ================= CONFIG =================
-# Get API URL from environment variable or use default
-API_URL = os.environ.get('API_URL', 'http://localhost:8000')
-
 st.set_page_config(
-    page_title="Customer Intelligence Platform",
-    page_icon="📊",
+    page_title="AI Customer Intelligence Platform",
+    page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ================= POLISHED PROFESSIONAL CSS =================
+# API Configuration
+API_BASE_URL = "https://mahmoud-alkodousy--customer-intelligence-api-fastapi-app.modal.run"
+
+# ================= CUSTOM CSS =================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    * {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-    
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    
-    .main {
-        background-color: #000000;
-        padding-top: 1rem;
-    }
-    
-    [data-testid="stSidebar"] {
-        background-color: #000000;
-        border-right: 1px solid #f16f01;
-    }
-    
     .main-header {
-        font-size: 2.75rem;
-        font-weight: 700;
-        color: #ffffff;
-        margin-bottom: 0.75rem;
-        letter-spacing: -0.5px;
-        line-height: 1.2;
-    }
-    
-    .main-header .accent {
-        color: #f16f01;
-    }
-    
-    .sub-header {
-        font-size: 1.1rem;
-        color: #ffffff;
-        opacity: 0.7;
-        margin-bottom: 3rem;
-        font-weight: 400;
-        line-height: 1.5;
-    }
-    
-    h2 {
-        color: #ffffff !important;
-        font-weight: 600 !important;
-        font-size: 1.5rem !important;
-        margin-bottom: 1rem !important;
-    }
-    
-    h3 {
-        color: #ffffff !important;
-        font-weight: 600 !important;
-        font-size: 1.25rem !important;
-        margin-bottom: 0.75rem !important;
-    }
-    
-    h4 {
-        color: #f16f01 !important;
-        font-weight: 600 !important;
-        font-size: 1rem !important;
-        margin-bottom: 1rem !important;
-        padding-bottom: 0.75rem !important;
-        border-bottom: 1px solid #333333 !important;
-    }
-    
-    .metric-card {
-        background-color: #000000;
-        border: 1px solid #333333;
-        border-radius: 12px;
-        padding: 2rem 1.5rem;
+        font-size: 3rem;
+        font-weight: bold;
+        color: #1f77b4;
         text-align: center;
-        transition: all 0.3s ease;
-        height: 100%;
+        margin-bottom: 2rem;
     }
-    
-    .metric-card:hover {
-        border-color: #f16f01;
-        box-shadow: 0 4px 16px rgba(241, 111, 1, 0.15);
-        transform: translateY(-2px);
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.5rem;
+        border-radius: 10px;
+        color: white;
+        text-align: center;
     }
-    
-    .metric-value {
-        font-size: 2.25rem;
-        font-weight: 700;
-        color: #f16f01;
-        margin: 0.75rem 0;
-        line-height: 1.2;
-    }
-    
-    .metric-label {
-        font-size: 0.9rem;
-        color: #ffffff;
-        opacity: 0.6;
-        text-transform: uppercase;
-        letter-spacing: 1.2px;
-        font-weight: 500;
-    }
-    
-    .metric-subtitle {
-        font-size: 0.85rem;
-        color: #ffffff;
-        opacity: 0.5;
-        margin-top: 0.75rem;
-    }
-    
     .risk-high {
-        border-color: #ff0000;
-        background: linear-gradient(135deg, rgba(255, 0, 0, 0.03) 0%, rgba(0, 0, 0, 0) 100%);
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     }
-    
-    .risk-high .metric-value {
-        color: #ff0000;
-    }
-    
     .risk-medium {
-        border-color: #ff7900;
-        background: linear-gradient(135deg, rgba(255, 121, 0, 0.03) 0%, rgba(0, 0, 0, 0) 100%);
+        background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+        color: #333;
     }
-    
-    .risk-medium .metric-value {
-        color: #ff7900;
-    }
-    
     .risk-low {
-        border-color: #00ff00;
-        background: linear-gradient(135deg, rgba(0, 255, 0, 0.03) 0%, rgba(0, 0, 0, 0) 100%);
+        background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        color: #333;
     }
-    
-    .risk-low .metric-value {
-        color: #00ff00;
-    }
-    
-    .status-badge {
-        display: inline-block;
-        padding: 0.5rem 1.25rem;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-    }
-    
-    .status-online {
-        background-color: rgba(0, 255, 0, 0.15);
-        color: #00ff00;
-        border: 1px solid #00ff00;
-    }
-    
-    .status-offline {
-        background-color: rgba(255, 0, 0, 0.15);
-        color: #ff0000;
-        border: 1px solid #ff0000;
-    }
-    
-    .status-high {
-        background-color: rgba(255, 0, 0, 0.15);
-        color: #ff0000;
-        border: 1px solid #ff0000;
-    }
-    
-    .status-medium {
-        background-color: rgba(255, 121, 0, 0.15);
-        color: #ff7900;
-        border: 1px solid #ff7900;
-    }
-    
-    .status-low {
-        background-color: rgba(0, 255, 0, 0.15);
-        color: #00ff00;
-        border: 1px solid #00ff00;
-    }
-    
-    .stButton > button {
-        width: 100%;
-        background: linear-gradient(135deg, #f16f01 0%, #ff7900 100%);
-        color: #ffffff;
-        border: none;
-        padding: 0.85rem 1.75rem;
-        font-size: 1rem;
-        font-weight: 600;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #ff7900 0%, #f16f01 100%);
-        box-shadow: 0 6px 20px rgba(241, 111, 1, 0.4);
-        transform: translateY(-2px);
-    }
-    
-    .info-box {
-        background: linear-gradient(135deg, rgba(241, 111, 1, 0.05) 0%, rgba(0, 0, 0, 0) 100%);
-        border: 1px solid #f16f01;
-        border-radius: 12px;
-        padding: 2rem;
-        margin: 1.5rem 0;
-    }
-    
-    .info-box h3 {
-        color: #f16f01 !important;
-        margin-bottom: 1rem !important;
-    }
-    
-    .info-box p {
-        color: #ffffff;
-        opacity: 0.8;
-        line-height: 1.6;
-        margin-bottom: 0.75rem;
-    }
-    
-    .warning-box {
-        border-color: #ff7900;
-    }
-    
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 0;
-        background-color: #000000;
-        border-bottom: 2px solid #333333;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        height: 3.5rem;
-        padding: 0 2.5rem;
-        font-size: 1rem;
-        font-weight: 600;
-        background-color: transparent;
-        color: #ffffff;
-        opacity: 0.5;
-    }
-    
-    .stTabs [data-baseweb="tab"]:hover {
-        opacity: 0.8;
-        background-color: rgba(241, 111, 1, 0.05);
-    }
-    
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        border-bottom: 3px solid #f16f01;
-        color: #f16f01;
-        opacity: 1;
+    .insight-box {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 10px;
+        border-left: 5px solid #1f77b4;
+        margin: 1rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
 
-
-# ================= API HELPER FUNCTIONS =================
-def check_api_status():
-    """Check if API is reachable"""
+# ================= HELPER FUNCTIONS =================
+def check_api_health():
+    """Check if API is healthy"""
     try:
-        response = requests.get(f"{API_URL}/health", timeout=5)
-        return response.status_code == 200, response.json()
-    except:
-        return False, None
+        response = requests.get(f"{API_BASE_URL}/health", timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("status") == "healthy", data.get("models_loaded", {})
+        return False, {}
+    except Exception as e:
+        st.error(f"❌ Cannot connect to API: {str(e)}")
+        return False, {}
 
-
-def predict_churn_api(customer_data):
-    """Call API for churn prediction"""
+def predict_churn(customer_data):
+    """Get churn prediction from API"""
     try:
         response = requests.post(
-            f"{API_URL}/predict_churn",
+            f"{API_BASE_URL}/predict_churn",
             json=customer_data,
             timeout=30
         )
-        response.raise_for_status()
-        return response.json()
+        
+        if response.status_code == 200:
+            return True, response.json()
+        else:
+            error_detail = response.json().get("detail", "Unknown error")
+            return False, {"error": error_detail}
+            
     except Exception as e:
-        st.error(f"API Error: {str(e)}")
-        return None
+        return False, {"error": str(e)}
 
-
-def analyze_customer_api(customer_data):
-    """Call API for full customer analysis"""
+def analyze_customer(customer_data):
+    """Get full customer analysis with AI insights"""
     try:
         response = requests.post(
-            f"{API_URL}/analyze_customer",
+            f"{API_BASE_URL}/analyze_customer",
             json=customer_data,
-            timeout=30
+            timeout=60
         )
-        response.raise_for_status()
-        return response.json()
+        
+        if response.status_code == 200:
+            return True, response.json()
+        else:
+            error_detail = response.json().get("detail", "Unknown error")
+            return False, {"error": error_detail}
+            
     except Exception as e:
-        st.error(f"API Error: {str(e)}")
-        return None
-
+        return False, {"error": str(e)}
 
 # ================= MAIN APP =================
 def main():
     # Header
-    st.markdown("""
-        <h1 class="main-header">
-            AI Customer Intelligence <span class="accent">Platform</span>
-        </h1>
-        <p class="sub-header">
-            Advanced machine learning analytics for customer behavior prediction and retention optimization
-        </p>
-    """, unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">🎯 AI Customer Intelligence Platform</h1>', unsafe_allow_html=True)
+    st.markdown("### Predict customer churn and get actionable AI insights")
     
-    # Sidebar
+    # Check API Health
     with st.sidebar:
-        st.markdown("### 🎛️ System Controls")
+        st.header("🔌 System Status")
         
-        # API Status
-        st.markdown("#### API Status")
-        api_online, health_data = check_api_status()
+        is_healthy, models_loaded = check_api_health()
         
-        if api_online:
-            st.markdown('<div class="status-badge status-online">✓ API Online</div>', unsafe_allow_html=True)
+        if is_healthy:
+            st.success("✅ API is online")
             
-            if health_data and 'models_loaded' in health_data:
-                models = health_data['models_loaded']
-                st.markdown(f"""
-                <div style="margin-top: 1rem; font-size: 0.85rem; color: #ffffff; opacity: 0.7;">
-                    Churn Model: {'✓' if models.get('churn_model') else '✗'}<br>
-                    Embedder: {'✓' if models.get('embedder') else '✗'}<br>
-                    Vector Store: {'✓' if models.get('vector_store') else '✗'}
-                </div>
-                """, unsafe_allow_html=True)
+            st.write("**Models Loaded:**")
+            for model, status in models_loaded.items():
+                icon = "✅" if status else "❌"
+                st.write(f"{icon} {model}")
         else:
-            st.markdown('<div class="status-badge status-offline">✗ API Offline</div>', unsafe_allow_html=True)
-            st.warning(f"Cannot connect to API at: {API_URL}")
+            st.error("❌ API is offline")
+            st.info("Please ensure the Modal API is deployed and running.")
+            st.stop()
         
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("---")
+        st.divider()
         
-        # API URL Config
-        st.markdown("#### ⚙️ Configuration")
-        st.text_input(
-            "API URL",
-            value=API_URL,
-            disabled=True,
-            help="Set API_URL environment variable to change"
-        )
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("---")
-        
-        st.markdown("#### 📊 About")
-        st.markdown("""
-        This dashboard connects to the AI Customer Intelligence API to:
+        st.header("📊 About")
+        st.info("""
+        This platform uses advanced ML models to:
         - Predict customer churn probability
-        - Provide AI-powered insights
-        - Analyze customer behavior
-        - Recommend retention strategies
+        - Identify risk factors
+        - Generate AI-powered insights
+        - Recommend retention actions
         """)
     
-    # Main Tabs
-    tab1, tab2 = st.tabs(["🎯 Single Prediction", "📊 Batch Analysis"])
+    # Main Content
+    tabs = st.tabs(["🔮 Churn Prediction", "🧠 AI Analysis", "📈 Insights Dashboard"])
     
-    # ================= TAB 1: Single Prediction =================
-    with tab1:
-        st.markdown("### Single Customer Analysis")
-        st.markdown("Enter customer data to get real-time churn prediction and AI-powered recommendations.")
+    # =================== TAB 1: CHURN PREDICTION ===================
+    with tabs[0]:
+        st.header("Customer Churn Prediction")
         
-        st.markdown("<br>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns(3)
         
-        if not api_online:
-            st.error("⚠️ API is offline. Please check the connection and try again.")
-        else:
-            # Input Form
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.markdown("#### Customer Profile")
-                age = st.number_input("Age", min_value=18, max_value=100, value=30)
-                total_actions = st.number_input("Total Actions", min_value=0, value=10)
-                avg_duration = st.number_input("Avg Duration (min)", min_value=0.0, value=5.0, step=0.5)
-                unique_products = st.number_input("Unique Products Viewed", min_value=0, value=3)
-                days_active = st.number_input("Days Active", min_value=0, value=5)
-            
-            with col2:
-                st.markdown("#### Engagement Metrics")
-                total_views = st.number_input("Total Views", min_value=0, value=20)
-                total_clicks = st.number_input("Total Clicks", min_value=0, value=10)
-                conversion_rate = st.slider("Conversion Rate", 0.0, 1.0, 0.2, 0.01)
-                dropoff_rate = st.slider("Drop-off Rate", 0.0, 1.0, 0.3, 0.01)
-                ctr = st.slider("Click-Through Rate", 0.0, 1.0, 0.5, 0.01)
-            
-            with col3:
-                st.markdown("#### Satisfaction Metrics")
-                avg_rating = st.slider("Average Rating", 1.0, 5.0, 3.5, 0.1)
-                total_reviews = st.number_input("Total Reviews", min_value=0, value=3)
-                negative_reviews = st.number_input("Negative Reviews", min_value=0, value=1)
-                positive_reviews = st.number_input("Positive Reviews", min_value=0, value=2)
-                sentiment_ratio = st.slider("Sentiment Ratio", 0.0, 1.0, 0.67, 0.01)
-                avg_product_price = st.number_input("Avg Product Price ($)", min_value=0.0, value=50.0, step=5.0)
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            # Analysis Type Selection
-            analysis_type = st.radio(
-                "Analysis Type",
-                ["Quick Prediction", "Full Analysis with AI Insights"],
-                horizontal=True
-            )
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            if st.button("🔍 Analyze Customer", use_container_width=True):
-                customer_data = {
-                    'Age': age,
-                    'total_actions': total_actions,
-                    'avg_duration': avg_duration,
-                    'avg_rating': avg_rating,
-                    'negative_reviews': negative_reviews,
-                    'positive_reviews': positive_reviews,
-                    'total_views': total_views,
-                    'total_clicks': total_clicks,
-                    'conversion_rate': conversion_rate,
-                    'dropoff_rate': dropoff_rate,
-                    'click_through_rate': ctr,
-                    'sentiment_ratio': sentiment_ratio,
-                    'avg_product_price': avg_product_price,
-                    'unique_products_viewed': unique_products,
-                    'days_active': days_active,
-                    'total_reviews': total_reviews
-                }
+        with col1:
+            st.subheader("👤 Demographics")
+            age = st.number_input("Age", min_value=18, max_value=100, value=35)
+        
+        with col2:
+            st.subheader("📊 Engagement Metrics")
+            total_actions = st.number_input("Total Actions", min_value=0, value=50)
+            avg_duration = st.number_input("Avg Duration (min)", min_value=0.0, value=5.2, step=0.1)
+            total_views = st.number_input("Total Views", min_value=0, value=100)
+            total_clicks = st.number_input("Total Clicks", min_value=0, value=25)
+        
+        with col3:
+            st.subheader("⭐ Satisfaction")
+            avg_rating = st.slider("Average Rating", min_value=1.0, max_value=5.0, value=3.5, step=0.1)
+            negative_reviews = st.number_input("Negative Reviews", min_value=0, value=1)
+            positive_reviews = st.number_input("Positive Reviews", min_value=0, value=3)
+            total_reviews = st.number_input("Total Reviews", min_value=0, value=4)
+        
+        st.divider()
+        
+        col_a, col_b = st.columns(2)
+        
+        with col_a:
+            st.subheader("💰 Product Metrics")
+            avg_product_price = st.number_input("Avg Product Price ($)", min_value=0.0, value=50.0, step=1.0)
+            unique_products_viewed = st.number_input("Unique Products Viewed", min_value=0, value=10)
+        
+        with col_b:
+            st.subheader("📅 Activity")
+            days_active = st.number_input("Days Active", min_value=0, value=30)
+            conversion_rate = st.slider("Conversion Rate", min_value=0.0, max_value=1.0, value=0.3, step=0.01)
+            dropoff_rate = st.slider("Drop-off Rate", min_value=0.0, max_value=1.0, value=0.2, step=0.01)
+        
+        # Calculate derived metrics
+        click_through_rate = total_clicks / total_views if total_views > 0 else 0
+        sentiment_ratio = positive_reviews / total_reviews if total_reviews > 0 else 0
+        
+        # Prepare data
+        customer_data = {
+            "Age": float(age),
+            "total_actions": float(total_actions),
+            "avg_duration": float(avg_duration),
+            "avg_rating": float(avg_rating),
+            "negative_reviews": float(negative_reviews),
+            "positive_reviews": float(positive_reviews),
+            "total_views": float(total_views),
+            "total_clicks": float(total_clicks),
+            "conversion_rate": float(conversion_rate),
+            "dropoff_rate": float(dropoff_rate),
+            "click_through_rate": float(click_through_rate),
+            "sentiment_ratio": float(sentiment_ratio),
+            "avg_product_price": float(avg_product_price),
+            "unique_products_viewed": float(unique_products_viewed),
+            "days_active": float(days_active),
+            "total_reviews": float(total_reviews)
+        }
+        
+        st.divider()
+        
+        if st.button("🔮 Predict Churn Risk", type="primary", use_container_width=True):
+            with st.spinner("Analyzing customer data..."):
+                success, result = predict_churn(customer_data)
                 
-                with st.spinner("Analyzing customer profile..."):
-                    if analysis_type == "Quick Prediction":
-                        result = predict_churn_api(customer_data)
-                    else:
-                        result = analyze_customer_api(customer_data)
+                if success:
+                    churn_prob = result.get('churn_probability', 0)
+                    risk_level = result.get('risk_level', 'UNKNOWN')
+                    prediction = result.get('prediction', 'Unknown')
                     
-                    if result:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        
-                        # Display Results
-                        st.markdown("#### 📊 Analysis Results")
-                        
-                        result_col1, result_col2, result_col3 = st.columns(3)
-                        
-                        with result_col1:
-                            churn_prob = result['churn_probability']
-                            risk_level = result['risk_level']
-                            risk_class = f"risk-{risk_level.lower()}"
-                            st.markdown(f"""
-                                <div class="metric-card {risk_class}">
-                                    <div class="metric-label">Churn Probability</div>
-                                    <div class="metric-value">{churn_prob:.1%}</div>
-                                </div>
-                            """, unsafe_allow_html=True)
-                        
-                        with result_col2:
-                            st.markdown(f"""
-                                <div class="metric-card">
-                                    <div class="metric-label">Risk Level</div>
-                                    <div class="metric-value">{risk_level}</div>
-                                </div>
-                            """, unsafe_allow_html=True)
-                        
-                        with result_col3:
-                            prediction = result['prediction']
-                            pred_emoji = "🔴" if "Risk" in prediction else "✅"
-                            st.markdown(f"""
-                                <div class="metric-card">
-                                    <div class="metric-label">Prediction</div>
-                                    <div class="metric-value" style="font-size: 1.5rem;">{prediction} {pred_emoji}</div>
-                                </div>
-                            """, unsafe_allow_html=True)
-                        
-                        # AI Insights (if full analysis)
-                        if analysis_type == "Full Analysis with AI Insights" and 'ai_insights' in result:
-                            st.markdown("<br><br>", unsafe_allow_html=True)
-                            st.markdown("#### 🤖 AI-Powered Insights")
-                            
-                            insights = result['ai_insights']
-                            
-                            # Summary
-                            st.markdown(f"**Summary:** {insights.get('summary', 'N/A')}")
-                            
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            
-                            insight_col1, insight_col2 = st.columns(2)
-                            
-                            with insight_col1:
-                                st.markdown("**🔍 Root Causes:**")
-                                for cause in insights.get('root_causes', []):
-                                    st.markdown(f"- {cause}")
-                            
-                            with insight_col2:
-                                st.markdown("**💡 Recommendations:**")
-                                for rec in insights.get('recommendations', []):
-                                    st.markdown(f"- {rec}")
-                            
-                            # Similar Reviews
-                            if 'similar_reviews' in result:
-                                st.markdown("<br>", unsafe_allow_html=True)
-                                st.markdown("**📝 Similar Customer Feedback:**")
-                                for i, review in enumerate(result['similar_reviews'][:3], 1):
-                                    st.markdown(f"{i}. ⭐ {review['rating']:.1f} - {review['text']}")
+                    # Display Results
+                    st.success("✅ Prediction Complete!")
+                    
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.markdown(f"""
+                        <div class="metric-card">
+                            <h3>Churn Probability</h3>
+                            <h1>{churn_prob:.1%}</h1>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col2:
+                        risk_class = f"risk-{risk_level.lower()}"
+                        st.markdown(f"""
+                        <div class="metric-card {risk_class}">
+                            <h3>Risk Level</h3>
+                            <h1>{risk_level}</h1>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col3:
+                        st.markdown(f"""
+                        <div class="metric-card">
+                            <h3>Status</h3>
+                            <h1>{prediction}</h1>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # Gauge Chart
+                    fig = go.Figure(go.Indicator(
+                        mode="gauge+number+delta",
+                        value=churn_prob * 100,
+                        domain={'x': [0, 1], 'y': [0, 1]},
+                        title={'text': "Churn Risk Score"},
+                        delta={'reference': 50},
+                        gauge={
+                            'axis': {'range': [None, 100]},
+                            'bar': {'color': "darkblue"},
+                            'steps': [
+                                {'range': [0, 40], 'color': "lightgreen"},
+                                {'range': [40, 70], 'color': "yellow"},
+                                {'range': [70, 100], 'color': "red"}
+                            ],
+                            'threshold': {
+                                'line': {'color': "red", 'width': 4},
+                                'thickness': 0.75,
+                                'value': 70
+                            }
+                        }
+                    ))
+                    
+                    fig.update_layout(height=400)
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                else:
+                    st.error(f"❌ Prediction failed: {result.get('error', 'Unknown error')}")
     
-    # ================= TAB 2: Batch Analysis =================
-    with tab2:
-        st.markdown("### Batch Customer Analysis")
-        st.markdown("Upload a CSV file with customer data for bulk churn prediction.")
+    # =================== TAB 2: AI ANALYSIS ===================
+    with tabs[1]:
+        st.header("🧠 Advanced AI Customer Analysis")
+        st.info("Get deep insights powered by AI, including similar customer patterns and actionable recommendations")
         
-        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🚀 Run Full AI Analysis", type="primary", use_container_width=True):
+            with st.spinner("🤖 Running comprehensive AI analysis... This may take a minute..."):
+                success, result = analyze_customer(customer_data)
+                
+                if success:
+                    # Extract data
+                    churn_prob = result.get('churn_probability', 0)
+                    risk_level = result.get('risk_level', 'UNKNOWN')
+                    priority = result.get('priority', 'NORMAL')
+                    similar_reviews = result.get('similar_reviews', [])
+                    ai_insights = result.get('ai_insights', {})
+                    customer_summary = result.get('customer_summary', {})
+                    
+                    st.success("✅ Analysis Complete!")
+                    
+                    # Risk Overview
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("Churn Risk", f"{churn_prob:.1%}", 
+                                 delta=f"{churn_prob - 0.5:.1%}" if churn_prob > 0.5 else None,
+                                 delta_color="inverse")
+                    
+                    with col2:
+                        st.metric("Risk Level", risk_level)
+                    
+                    with col3:
+                        st.metric("Priority", priority)
+                    
+                    with col4:
+                        engagement = customer_summary.get('engagement_score', 0)
+                        st.metric("Engagement Score", f"{engagement:.0f}")
+                    
+                    st.divider()
+                    
+                    # AI Insights
+                    if ai_insights:
+                        st.subheader("🎯 AI-Generated Insights")
+                        
+                        summary = ai_insights.get('summary', 'No summary available')
+                        st.markdown(f"""
+                        <div class="insight-box">
+                            <h4>📝 Executive Summary</h4>
+                            <p>{summary}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        col_left, col_right = st.columns(2)
+                        
+                        with col_left:
+                            st.markdown("### 🔍 Root Causes")
+                            root_causes = ai_insights.get('root_causes', [])
+                            for i, cause in enumerate(root_causes, 1):
+                                st.warning(f"**{i}.** {cause}")
+                        
+                        with col_right:
+                            st.markdown("### 💡 Recommendations")
+                            recommendations = ai_insights.get('recommendations', [])
+                            for i, rec in enumerate(recommendations, 1):
+                                st.success(f"**{i}.** {rec}")
+                    
+                    st.divider()
+                    
+                    # Similar Customer Reviews
+                    if similar_reviews:
+                        st.subheader("👥 Similar Customer Feedback")
+                        st.caption("Reviews from customers with similar patterns")
+                        
+                        for i, review in enumerate(similar_reviews, 1):
+                            rating = review.get('rating', 0)
+                            text = review.get('text', 'No text available')
+                            
+                            stars = "⭐" * int(rating)
+                            
+                            st.markdown(f"""
+                            <div class="insight-box">
+                                <p><strong>Review {i}</strong> {stars} ({rating}/5)</p>
+                                <p style="font-style: italic;">"{text}..."</p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                else:
+                    st.error(f"❌ Analysis failed: {result.get('error', 'Unknown error')}")
+                    st.info("💡 Make sure the API models are fully loaded. Check the sidebar status.")
+    
+    # =================== TAB 3: INSIGHTS DASHBOARD ===================
+    with tabs[2]:
+        st.header("📈 Customer Insights Dashboard")
         
-        if not api_online:
-            st.error("⚠️ API is offline. Please check the connection and try again.")
-        else:
-            uploaded_file = st.file_uploader(
-                "Upload CSV file with customer data",
-                type=['csv'],
-                help="File should contain columns matching the API input schema"
+        # Create sample data for visualization
+        metrics_df = pd.DataFrame({
+            'Metric': ['Engagement', 'Satisfaction', 'Conversion', 'Retention'],
+            'Score': [
+                min(total_actions / 100, 1.0),
+                avg_rating / 5.0,
+                conversion_rate,
+                1.0 - dropoff_rate
+            ]
+        })
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Bar chart
+            fig1 = px.bar(
+                metrics_df,
+                x='Metric',
+                y='Score',
+                title='Customer Health Metrics',
+                color='Score',
+                color_continuous_scale='RdYlGn'
             )
-            
-            if uploaded_file is not None:
-                try:
-                    df = pd.read_csv(uploaded_file)
-                    
-                    st.success(f"✅ Loaded {len(df)} customers")
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    
-                    if st.button("🚀 Run Batch Analysis", use_container_width=True):
-                        with st.spinner("Processing customers..."):
-                            results = []
-                            
-                            progress_bar = st.progress(0)
-                            
-                            for idx, row in df.iterrows():
-                                customer_data = row.to_dict()
-                                result = predict_churn_api(customer_data)
-                                
-                                if result:
-                                    results.append({
-                                        'CustomerID': row.get('CustomerID', idx),
-                                        'Churn_Probability': result['churn_probability'],
-                                        'Risk_Level': result['risk_level'],
-                                        'Prediction': result['prediction']
-                                    })
-                                
-                                progress_bar.progress((idx + 1) / len(df))
-                            
-                            final_df = pd.DataFrame(results)
-                            
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            
-                            # Summary Stats
-                            st.markdown("#### 📊 Batch Analysis Summary")
-                            
-                            sum_col1, sum_col2, sum_col3, sum_col4 = st.columns(4)
-                            
-                            with sum_col1:
-                                high_risk = (final_df['Risk_Level'] == 'HIGH').sum()
-                                st.markdown(f"""
-                                    <div class="metric-card risk-high">
-                                        <div class="metric-label">High Risk</div>
-                                        <div class="metric-value">{high_risk}</div>
-                                    </div>
-                                """, unsafe_allow_html=True)
-                            
-                            with sum_col2:
-                                medium_risk = (final_df['Risk_Level'] == 'MEDIUM').sum()
-                                st.markdown(f"""
-                                    <div class="metric-card risk-medium">
-                                        <div class="metric-label">Medium Risk</div>
-                                        <div class="metric-value">{medium_risk}</div>
-                                    </div>
-                                """, unsafe_allow_html=True)
-                            
-                            with sum_col3:
-                                low_risk = (final_df['Risk_Level'] == 'LOW').sum()
-                                st.markdown(f"""
-                                    <div class="metric-card risk-low">
-                                        <div class="metric-label">Low Risk</div>
-                                        <div class="metric-value">{low_risk}</div>
-                                    </div>
-                                """, unsafe_allow_html=True)
-                            
-                            with sum_col4:
-                                avg_prob = final_df['Churn_Probability'].mean()
-                                st.markdown(f"""
-                                    <div class="metric-card">
-                                        <div class="metric-label">Avg Churn Prob</div>
-                                        <div class="metric-value">{avg_prob:.1%}</div>
-                                    </div>
-                                """, unsafe_allow_html=True)
-                            
-                            st.markdown("<br><br>", unsafe_allow_html=True)
-                            
-                            # Distribution Chart
-                            st.markdown("#### 📊 Churn Probability Distribution")
-                            
-                            fig = go.Figure(data=[go.Histogram(
-                                x=final_df['Churn_Probability'],
-                                nbinsx=30,
-                                marker=dict(
-                                    color='#f16f01',
-                                    line=dict(color='#000000', width=1)
-                                )
-                            )])
-                            
-                            fig.update_layout(
-                                title={
-                                    'text': "Churn Probability Distribution",
-                                    'font': {'size': 18, 'color': '#ffffff', 'family': 'Inter'}
-                                },
-                                xaxis_title="Probability",
-                                yaxis_title="Count",
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                plot_bgcolor='rgba(10,10,10,1)',
-                                font=dict(color='#ffffff', family='Inter'),
-                                height=380,
-                                xaxis=dict(gridcolor='#333333'),
-                                yaxis=dict(gridcolor='#333333')
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-                            
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            
-                            # Full Results
-                            st.markdown("#### 📋 Complete Results")
-                            st.dataframe(final_df, use_container_width=True)
-                            
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            
-                            # Download
-                            csv = final_df.to_csv(index=False).encode("utf-8")
-                            st.download_button(
-                                label="📥 Download Results",
-                                data=csv,
-                                file_name=f"churn_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                                mime="text/csv",
-                                use_container_width=True
-                            )
-                            
-                except Exception as e:
-                    st.error(f"❌ Error processing file: {str(e)}")
-            else:
-                st.markdown("""
-                    <div class="info-box">
-                        <h3>📁 Upload Your Data</h3>
-                        <p>Upload a CSV file containing customer data to perform batch churn prediction analysis.</p>
-                        <p>Required columns: Age, total_actions, avg_duration, avg_rating, negative_reviews, positive_reviews, total_views, total_clicks, conversion_rate, dropoff_rate, click_through_rate, sentiment_ratio, avg_product_price, unique_products_viewed, days_active, total_reviews</p>
-                    </div>
-                """, unsafe_allow_html=True)
-
+            fig1.update_layout(showlegend=False)
+            st.plotly_chart(fig1, use_container_width=True)
+        
+        with col2:
+            # Radar chart
+            fig2 = go.Figure()
+            fig2.add_trace(go.Scatterpolar(
+                r=metrics_df['Score'],
+                theta=metrics_df['Metric'],
+                fill='toself',
+                name='Customer Profile'
+            ))
+            fig2.update_layout(
+                polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+                title='Customer Profile Overview'
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+        
+        # Activity Timeline
+        st.subheader("📅 Activity Overview")
+        
+        activity_data = pd.DataFrame({
+            'Category': ['Views', 'Clicks', 'Actions', 'Reviews'],
+            'Count': [total_views, total_clicks, total_actions, total_reviews]
+        })
+        
+        fig3 = px.pie(
+            activity_data,
+            values='Count',
+            names='Category',
+            title='Activity Distribution'
+        )
+        st.plotly_chart(fig3, use_container_width=True)
 
 if __name__ == "__main__":
     main()
