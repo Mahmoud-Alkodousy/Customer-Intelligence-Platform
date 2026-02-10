@@ -50,6 +50,15 @@ st.markdown("""
         border-radius: 10px;
         border-left: 5px solid #1f77b4;
         margin: 1rem 0;
+        color: #333333;
+    }
+    .insight-box h4 {
+        color: #1f1f1f;
+        margin-bottom: 0.5rem;
+    }
+    .insight-box p {
+        color: #333333;
+        line-height: 1.6;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -321,8 +330,8 @@ def main():
                         summary = ai_insights.get('summary', 'No summary available')
                         st.markdown(f"""
                         <div class="insight-box">
-                            <h4>📝 Executive Summary</h4>
-                            <p>{summary}</p>
+                            <h4 style="color: #1f1f1f;">📝 Executive Summary</h4>
+                            <p style="color: #333333; line-height: 1.6;">{summary}</p>
                         </div>
                         """, unsafe_allow_html=True)
                         
@@ -355,8 +364,8 @@ def main():
                             
                             st.markdown(f"""
                             <div class="insight-box">
-                                <p><strong>Review {i}</strong> {stars} ({rating}/5)</p>
-                                <p style="font-style: italic;">"{text}..."</p>
+                                <p style="color: #1f1f1f;"><strong>Review {i}</strong> {stars} ({rating}/5)</p>
+                                <p style="font-style: italic; color: #555555;">"{text}..."</p>
                             </div>
                             """, unsafe_allow_html=True)
                     
